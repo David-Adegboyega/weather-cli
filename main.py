@@ -2,15 +2,23 @@ import requests
 
 
 def get_coordinate(city):
-    """Find the longitude and the latitude of the city"""
-    r = requests.get(
-        "https://geocoding-api.open-meteo.com/v1/search",
-        params={"name": "Port Harcourt", "count": 1},
-        timeout=7,
-    )
-    r.raise_for_status()
+    """Return (latitude, longitude, display_name) for a city, or None if not found or the request fails."""
+    try:
+        response = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": city, "count": 1},
+            timeout=7,
+        )
+        response.raise_for_status()
+        results = response.json().get("results")
+    except requests.exceptions.RequestException:
+        return None
 
-    print(r.json())
+    if not results:
+        return None
+
+    place = results[0]
+    return place["latitude"], place["longitude"], f"{place['name']}, {place['country']}"
 
 
 def get_weather(latitude, longitude):
@@ -66,18 +74,41 @@ weather_codes = {
 def display_weather_code(code):
     """Convert a weather condition to a readable format"""
     return weather_codes.get(code, "unknown")
-   
-  
 
+def format_weather(name, weather):
+    """Return a multi-line report string for a city and its weather dict."""
+    temperature = weather["temperature"]
+    wind = weather["windspeed"]
+    conditions = display_weather_code(weather["weathercode"])
+
+    return (
+        f"{name}\n"
+        f"Temperature: {temperature}°C\n"
+        f"Wind: {wind} km/h\n"
+        f"Conditions: {conditions}"
+    )
 
 def main():
-    pass
+    while True:
+        city = input("Enter name of city, or Quit to quit: ").lower().strip()
+        if city == "quit":
+            break
+        if not city:
+            print("Enter a city name")
+            continue
+        result = get_coordinate(city)
+        if result is None:
+            print(f"{city} wasnt't  found")
+            continue
+        latitude, longitude, name = result
 
+        weather = get_weather(latitude, longitude)
+        if weather is None:
+                print("Couldn't fetch the weather right now.")
+                continue
+        print(name)
+        print(weather) 
 
 if __name__ == "__main__":
     main()
 
-
-print(display_weather_code(0))     # Clear sky
-print(display_weather_code(61))    # Slight rain
-print(display_weather_code(999))   # Unknown
